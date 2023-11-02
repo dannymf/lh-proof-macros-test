@@ -1,0 +1,291 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<title>src/Tactic/Core/Parse.hs</title>
+</head>
+<head>
+<link type='text/css' rel='stylesheet' href='liquid.css' />
+</head>
+
+<body>
+<hr>
+Put mouse over identifiers to see inferred types
+<pre><span class=hs-linenum>  1: </span><span class='hs-comment'>{-# LANGUAGE BlockArguments #-}</span>
+<span class=hs-linenum>  2: </span><span class='hs-comment'>{-# LANGUAGE LambdaCase #-}</span>
+<span class=hs-linenum>  3: </span><span class='hs-comment'>{-# LANGUAGE NamedFieldPuns #-}</span>
+<span class=hs-linenum>  4: </span><span class='hs-comment'>{-# LANGUAGE PackageImports #-}</span>
+<span class=hs-linenum>  5: </span><span class='hs-comment'>{-# LANGUAGE QuasiQuotes #-}</span>
+<span class=hs-linenum>  6: </span><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
+<span class=hs-linenum>  7: </span>
+<span class=hs-linenum>  8: </span><span class='hs-keyword'>{-@</span> <span class='hs-conid'>LIQUID</span> <span class='hs-str'>"--compile-spec"</span> <span class='hs-keyword'>@-}</span>
+<span class=hs-linenum>  9: </span>
+<span class=hs-linenum> 10: </span><span class='hs-keyword'>module</span> <span class='hs-conid'>Tactic.Core.Parse</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum> 11: </span>
+<span class=hs-linenum> 12: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Control.Monad.Trans</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Trans</span>
+<span class=hs-linenum> 13: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.Char</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Char</span>
+<span class=hs-linenum> 14: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.Meta.Parse</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>MP</span>
+<span class=hs-linenum> 15: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH</span>
+<span class=hs-linenum> 16: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Datatype</span>
+<span class=hs-linenum> 17: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Ppr</span> <span class='hs-layout'>(</span><span class='hs-varid'>pprint</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 18: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Quote</span>
+<span class=hs-linenum> 19: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Syntax</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>lift</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 20: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Debug</span>
+<span class=hs-linenum> 21: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Syntax</span>
+<span class=hs-linenum> 22: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Utility</span>
+<span class=hs-linenum> 23: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Text.Parsec</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>P</span>
+<span class=hs-linenum> 24: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Prelude</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>exp</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 25: </span>
+<span class=hs-linenum> 26: </span><span class='hs-keyword'>type</span> <span class='hs-conid'>Parser</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>P.ParsecT</span> <span class='hs-conid'>String</span> <span class='hs-conid'>()</span> <span class='hs-conid'>Q</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum> 27: </span>
+<span class=hs-linenum> 28: </span><span class='hs-definition'>runParser</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Q</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum> 29: </span><span class='hs-definition'>runParser</span> <span class='hs-varid'>p</span> <span class='hs-varid'>str</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 30: </span>  <span class='hs-conid'>P.runParserT</span> <span class='hs-varid'>p</span> <span class='hs-conid'>()</span> <span class='hs-str'>"SourceName"</span> <span class='hs-varid'>str</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-keyglyph'>\</span><span class='hs-keyword'>case</span>
+<span class=hs-linenum> 31: </span>    <span class='hs-conid'>Left</span> <span class='hs-varid'>err</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-varop'>$</span> <span class='hs-varid'>show</span> <span class='hs-varid'>err</span>
+<span class=hs-linenum> 32: </span>    <span class='hs-conid'>Right</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum> 33: </span>
+<span class=hs-linenum> 34: </span><span class='hs-definition'>parseInstrs</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Instr</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 35: </span><span class='hs-definition'>parseInstrs</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 36: </span>  <span class='hs-varid'>instrs</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>concat</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>parseInstr</span> <span class='hs-varop'>`P.sepBy`</span> <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>";"</span>
+<span class=hs-linenum> 37: </span>  <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>";"</span> <span class='hs-comment'>-- because why not</span>
+<span class=hs-linenum> 38: </span>  <span class='hs-varid'>pure</span> <span class='hs-varid'>instrs</span>
+<span class=hs-linenum> 39: </span>
+<span class=hs-linenum> 40: </span><span class='hs-comment'>-- intros of the form `[x1 x2 ... xn | ... | y1 y2 ... ym ]`</span>
+<span class=hs-linenum> 41: </span><span class='hs-definition'>parseIntros</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-keyglyph'>[</span><span class='hs-conid'>String</span><span class='hs-keyglyph'>]</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 42: </span><span class='hs-definition'>parseIntros</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 43: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"["</span>
+<span class=hs-linenum> 44: </span>  <span class='hs-comment'>-- s &lt;- parseUntilBefore (parseIsChar ']')</span>
+<span class=hs-linenum> 45: </span>  <span class='hs-comment'>-- let intros = fmap (splitByChar ' ') . splitByChar '|' $ s</span>
+<span class=hs-linenum> 46: </span>  <span class='hs-varid'>intros</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-layout'>(</span><span class='hs-varid'>parseNameString</span> <span class='hs-varop'>`P.sepBy`</span> <span class='hs-conid'>P.spaces</span><span class='hs-layout'>)</span> <span class='hs-varop'>`P.sepBy`</span> <span class='hs-layout'>(</span><span class='hs-varid'>lexeme</span> <span class='hs-layout'>(</span><span class='hs-conid'>P.char</span> <span class='hs-chr'>'/'</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 47: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"]"</span>
+<span class=hs-linenum> 48: </span>  <span class='hs-varid'>pure</span> <span class='hs-varid'>intros</span>
+<span class=hs-linenum> 49: </span>
+<span class=hs-linenum> 50: </span><span class='hs-comment'>-- `[x1, x2, ...]:`</span>
+<span class=hs-linenum> 51: </span><span class='hs-definition'>parseRequires</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-layout'>(</span><span class='hs-conid'>Maybe</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>String</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 52: </span><span class='hs-definition'>parseRequires</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 53: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"["</span>
+<span class=hs-linenum> 54: </span>  <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseNameString</span> <span class='hs-varop'>`P.sepBy`</span> <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>","</span>
+<span class=hs-linenum> 55: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"]:"</span>
+<span class=hs-linenum> 56: </span>
+<span class=hs-linenum> 57: </span>  <span class='hs-varid'>pure</span> <span class='hs-varid'>requires</span>
+<span class=hs-linenum> 58: </span>
+<span class=hs-linenum> 59: </span><span class='hs-definition'>parseFlags</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>String</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 60: </span><span class='hs-definition'>parseFlags</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 61: </span>  <span class='hs-varid'>mb_start</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>$</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"#["</span>
+<span class=hs-linenum> 62: </span>  <span class='hs-keyword'>case</span> <span class='hs-varid'>mb_start</span> <span class='hs-keyword'>of</span>
+<span class=hs-linenum> 63: </span>    <span class='hs-conid'>Just</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 64: </span>      <span class='hs-varid'>flags</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseWord</span> <span class='hs-varop'>`P.sepBy`</span> <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>","</span>
+<span class=hs-linenum> 65: </span>      <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"]"</span>
+<span class=hs-linenum> 66: </span>      <span class='hs-varid'>pure</span> <span class='hs-varid'>flags</span>
+<span class=hs-linenum> 67: </span>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span>
+<span class=hs-linenum> 68: </span>      <span class='hs-varid'>pure</span> <span class='hs-conid'>[]</span>
+<span class=hs-linenum> 69: </span>
+<span class=hs-linenum> 70: </span><span class='hs-definition'>parseInstrRequires</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>String</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Instr</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 71: </span><span class='hs-definition'>parseInstrRequires</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 72: </span>  <span class='hs-conid'>P.choice</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fmap</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum> 73: </span>    <span class='hs-keyglyph'>[</span> <span class='hs-comment'>-- Assert</span>
+<span class=hs-linenum> 74: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 75: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"assert"</span>
+<span class=hs-linenum> 76: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum> 77: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Assert</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 78: </span>      <span class='hs-comment'>-- Dismiss</span>
+<span class=hs-linenum> 79: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 80: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"dismiss"</span>
+<span class=hs-linenum> 81: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum> 82: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Dismiss</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 83: </span>      <span class='hs-comment'>-- Use</span>
+<span class=hs-linenum> 84: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 85: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"use"</span>
+<span class=hs-linenum> 86: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum> 87: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Use</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 88: </span>      <span class='hs-comment'>-- Cond</span>
+<span class=hs-linenum> 89: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 90: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"condition"</span>
+<span class=hs-linenum> 91: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum> 92: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Cond</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 93: </span>      <span class='hs-comment'>-- error</span>
+<span class=hs-linenum> 94: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 95: </span>        <span class='hs-varid'>error</span> <span class='hs-str'>"only these tactics allow a scope guard: assert, dismiss, use, condition"</span>
+<span class=hs-linenum> 96: </span>    <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 97: </span>
+<span class=hs-linenum> 98: </span><span class='hs-definition'>parseInstr</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Instr</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 99: </span><span class='hs-definition'>parseInstr</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>100: </span>  <span class='hs-varid'>parseRequires</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-keyglyph'>\</span><span class='hs-keyword'>case</span>
+<span class=hs-linenum>101: </span>    <span class='hs-conid'>Just</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>parseInstrRequires</span> <span class='hs-varid'>requires</span>
+<span class=hs-linenum>102: </span>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>parseInstr'</span>
+<span class=hs-linenum>103: </span>
+<span class=hs-linenum>104: </span><span class='hs-definition'>parseInstr'</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Instr</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>105: </span><span class='hs-definition'>parseInstr'</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum>106: </span>  <span class='hs-conid'>P.choice</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fmap</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>107: </span>    <span class='hs-keyglyph'>[</span> <span class='hs-comment'>-- Intro</span>
+<span class=hs-linenum>108: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>109: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"intro"</span>
+<span class=hs-linenum>110: </span>        <span class='hs-varid'>name</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseNameString</span>
+<span class=hs-linenum>111: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Intro</span> <span class='hs-layout'>{</span><span class='hs-varid'>name</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>112: </span>      <span class='hs-comment'>-- Destruct</span>
+<span class=hs-linenum>113: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>114: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"destruct"</span>
+<span class=hs-linenum>115: </span>        <span class='hs-varid'>name</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseNameString</span>
+<span class=hs-linenum>116: </span>        <span class='hs-varid'>intros</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>117: </span>          <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"as"</span>
+<span class=hs-linenum>118: </span>          <span class='hs-varid'>parseIntros</span>
+<span class=hs-linenum>119: </span>        <span class='hs-varid'>flags</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseFlags</span>
+<span class=hs-linenum>120: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Destruct</span> <span class='hs-layout'>{</span><span class='hs-varid'>name</span><span class='hs-layout'>,</span> <span class='hs-varid'>intros</span><span class='hs-layout'>,</span> <span class='hs-varid'>flags</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>121: </span>      <span class='hs-comment'>-- Induct</span>
+<span class=hs-linenum>122: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>123: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"induct"</span>
+<span class=hs-linenum>124: </span>        <span class='hs-varid'>name</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseNameString</span>
+<span class=hs-linenum>125: </span>        <span class='hs-varid'>intros</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>126: </span>          <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"as"</span>
+<span class=hs-linenum>127: </span>          <span class='hs-varid'>parseIntros</span>
+<span class=hs-linenum>128: </span>        <span class='hs-varid'>flags</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseFlags</span>
+<span class=hs-linenum>129: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Induct</span> <span class='hs-layout'>{</span><span class='hs-varid'>name</span><span class='hs-layout'>,</span> <span class='hs-varid'>intros</span><span class='hs-layout'>,</span> <span class='hs-varid'>flags</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>130: </span>      <span class='hs-comment'>-- Auto</span>
+<span class=hs-linenum>131: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>132: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"auto"</span>
+<span class=hs-linenum>133: </span>        <span class='hs-varid'>mb_hints</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>134: </span>          <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"["</span>
+<span class=hs-linenum>135: </span>          <span class='hs-varid'>hints</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>fmap</span> <span class='hs-varid'>nameToExp</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-conid'>P.sepBy</span> <span class='hs-varid'>parseName</span> <span class='hs-layout'>(</span><span class='hs-varid'>parseSymbol</span> <span class='hs-str'>","</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>136: </span>          <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"]"</span>
+<span class=hs-linenum>137: </span>          <span class='hs-varid'>pure</span> <span class='hs-varid'>hints</span>
+<span class=hs-linenum>138: </span>        <span class='hs-varid'>mb_depth</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.optionMaybe</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.try</span> <span class='hs-varop'>$</span> <span class='hs-varid'>parseInt</span>
+<span class=hs-linenum>139: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Auto</span> <span class='hs-layout'>{</span><span class='hs-varid'>hints</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>maybe</span> <span class='hs-varid'>defaultAutoHints</span> <span class='hs-varid'>id</span> <span class='hs-varid'>mb_hints</span><span class='hs-layout'>,</span> <span class='hs-varid'>depth</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>maybe</span> <span class='hs-varid'>defaultAutoDepth</span> <span class='hs-varid'>id</span> <span class='hs-varid'>mb_depth</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>140: </span>      <span class='hs-comment'>-- Assert</span>
+<span class=hs-linenum>141: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>142: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"assert"</span>
+<span class=hs-linenum>143: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum>144: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Assert</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>[]</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>145: </span>      <span class='hs-comment'>-- Dismiss</span>
+<span class=hs-linenum>146: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>147: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"dismiss"</span>
+<span class=hs-linenum>148: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum>149: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Dismiss</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>[]</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>150: </span>      <span class='hs-comment'>-- Use</span>
+<span class=hs-linenum>151: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>152: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"use"</span>
+<span class=hs-linenum>153: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum>154: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Use</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>[]</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>155: </span>      <span class='hs-comment'>-- Cond</span>
+<span class=hs-linenum>156: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>157: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"condition"</span>
+<span class=hs-linenum>158: </span>        <span class='hs-varid'>exp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>parseExp</span>
+<span class=hs-linenum>159: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Cond</span> <span class='hs-layout'>{</span><span class='hs-varid'>exp</span><span class='hs-layout'>,</span> <span class='hs-varid'>requires</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>[]</span><span class='hs-layout'>}</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>160: </span>      <span class='hs-comment'>-- Trivial</span>
+<span class=hs-linenum>161: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>162: </span>        <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"trivial"</span>
+<span class=hs-linenum>163: </span>        <span class='hs-varid'>pure</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Trivial</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>164: </span>      <span class='hs-comment'>-- comment</span>
+<span class=hs-linenum>165: </span>      <span class='hs-keyword'>do</span>
+<span class=hs-linenum>166: </span>        <span class='hs-conid'>P.spaces</span>
+<span class=hs-linenum>167: </span>        <span class='hs-conid'>P.string</span> <span class='hs-str'>"--"</span>
+<span class=hs-linenum>168: </span>        <span class='hs-conid'>P.manyTill</span> <span class='hs-conid'>P.anyChar</span> <span class='hs-layout'>(</span><span class='hs-conid'>P.try</span> <span class='hs-conid'>P.newline</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>169: </span>        <span class='hs-varid'>pure</span> <span class='hs-conid'>[]</span>
+<span class=hs-linenum>170: </span>    <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>171: </span>
+<span class=hs-linenum>172: </span><span class='hs-definition'>parseDecInstrs</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-layout'>(</span><span class='hs-conid'>Environment</span><span class='hs-layout'>,</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Instr</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>173: </span><span class='hs-definition'>parseDecInstrs</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>174: </span>  <span class='hs-comment'>-- sig</span>
+<span class=hs-linenum>175: </span>  <span class='hs-conid'>P.spaces</span>
+<span class=hs-linenum>176: </span>  <span class='hs-varid'>def_name</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseName</span>
+<span class=hs-linenum>177: </span>  <span class='hs-conid'>P.string</span> <span class='hs-str'>"::"</span>
+<span class=hs-linenum>178: </span>  <span class='hs-conid'>P.many</span> <span class='hs-varop'>$</span> <span class='hs-conid'>P.char</span> <span class='hs-chr'>' '</span>
+<span class=hs-linenum>179: </span>  <span class='hs-varid'>def_type_string</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseUntilBefore</span> <span class='hs-varid'>parseNextIsNewline</span>
+<span class=hs-linenum>180: </span>  <span class='hs-varid'>def_type</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>fromMP</span> <span class='hs-varop'>$</span> <span class='hs-conid'>MP.parseType</span> <span class='hs-varid'>def_type_string</span>
+<span class=hs-linenum>181: </span>  <span class='hs-keyword'>let</span> <span class='hs-layout'>(</span><span class='hs-varid'>def_argTypes</span><span class='hs-layout'>,</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>flattenType</span> <span class='hs-varid'>def_type</span>
+<span class=hs-linenum>182: </span>  <span class='hs-comment'>-- imp</span>
+<span class=hs-linenum>183: </span>  <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseName</span> <span class='hs-comment'>-- == def_name</span>
+<span class=hs-linenum>184: </span>  <span class='hs-varid'>def_argNames</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.many</span> <span class='hs-varid'>parseName</span>
+<span class=hs-linenum>185: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"="</span>
+<span class=hs-linenum>186: </span>  <span class='hs-varid'>instrs</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>parseInstrs</span>
+<span class=hs-linenum>187: </span>  <span class='hs-varid'>pure</span>
+<span class=hs-linenum>188: </span>    <span class='hs-layout'>(</span> <span class='hs-varid'>emptyEnvironment</span>
+<span class=hs-linenum>189: </span>        <span class='hs-layout'>{</span> <span class='hs-varid'>def_name</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>def_name</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>190: </span>          <span class='hs-varid'>def_type</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>def_type</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>191: </span>          <span class='hs-varid'>def_argNames</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>def_argNames</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>192: </span>          <span class='hs-varid'>def_argTypes</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>def_argTypes</span>
+<span class=hs-linenum>193: </span>        <span class='hs-layout'>}</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>194: </span>      <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>name</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Intro</span> <span class='hs-layout'>{</span><span class='hs-varid'>name</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>show</span> <span class='hs-varid'>name</span><span class='hs-layout'>}</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>def_argNames</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>195: </span>        <span class='hs-varop'>++</span> <span class='hs-varid'>instrs</span>
+<span class=hs-linenum>196: </span>    <span class='hs-layout'>)</span>
+<span class=hs-linenum>197: </span>
+<span class=hs-linenum>198: </span><span class='hs-definition'>fromMP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>String</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum>199: </span><span class='hs-definition'>fromMP</span> <span class='hs-varid'>e</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>case</span> <span class='hs-varid'>e</span> <span class='hs-keyword'>of</span>
+<span class=hs-linenum>200: </span>  <span class='hs-conid'>Right</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum>201: </span>  <span class='hs-conid'>Left</span> <span class='hs-varid'>msg</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-varop'>$</span> <span class='hs-str'>"metaparse: "</span> <span class='hs-varop'>++</span> <span class='hs-varid'>msg</span>
+<span class=hs-linenum>202: </span>
+<span class=hs-linenum>203: </span><span class='hs-definition'>lexeme</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum>204: </span><span class='hs-definition'>lexeme</span> <span class='hs-varid'>p</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>205: </span>  <span class='hs-varid'>a</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>p</span>
+<span class=hs-linenum>206: </span>  <span class='hs-conid'>P.spaces</span>
+<span class=hs-linenum>207: </span>  <span class='hs-varid'>pure</span> <span class='hs-varid'>a</span>
+<span class=hs-linenum>208: </span>
+<span class=hs-linenum>209: </span><span class='hs-definition'>parseSymbol</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>String</span>
+<span class=hs-linenum>210: </span><span class='hs-definition'>parseSymbol</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P.string</span>
+<span class=hs-linenum>211: </span>
+<span class=hs-linenum>212: </span><span class='hs-comment'>-- characters allowed in ids</span>
+<span class=hs-linenum>213: </span><span class='hs-definition'>parseNameChar</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Char</span>
+<span class=hs-linenum>214: </span><span class='hs-definition'>parseNameChar</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>P.alphaNum</span> <span class='hs-conid'>P</span><span class='hs-varop'>.&lt;|&gt;</span> <span class='hs-conid'>P.oneOf</span> <span class='hs-str'>"_'"</span>
+<span class=hs-linenum>215: </span>
+<span class=hs-linenum>216: </span><span class='hs-definition'>parseName</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Name</span>
+<span class=hs-linenum>217: </span><span class='hs-definition'>parseName</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>218: </span>  <span class='hs-varid'>s</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.many1</span> <span class='hs-varid'>parseNameChar</span>
+<span class=hs-linenum>219: </span>  <span class='hs-varid'>pure</span> <span class='hs-varop'>$</span> <span class='hs-varid'>mkName</span> <span class='hs-varid'>s</span>
+<span class=hs-linenum>220: </span>
+<span class=hs-linenum>221: </span><span class='hs-definition'>parseNameString</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>String</span>
+<span class=hs-linenum>222: </span><span class='hs-definition'>parseNameString</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>223: </span>  <span class='hs-conid'>P.many1</span> <span class='hs-varid'>parseNameChar</span>
+<span class=hs-linenum>224: </span>
+<span class=hs-linenum>225: </span><span class='hs-definition'>parseWord</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>String</span>
+<span class=hs-linenum>226: </span><span class='hs-definition'>parseWord</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>227: </span>  <span class='hs-conid'>P.many1</span> <span class='hs-conid'>P.alphaNum</span>
+<span class=hs-linenum>228: </span>
+<span class=hs-linenum>229: </span><span class='hs-definition'>parseInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Int</span>
+<span class=hs-linenum>230: </span><span class='hs-definition'>parseInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>231: </span>  <span class='hs-varid'>ds</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.many1</span> <span class='hs-conid'>P.digit</span>
+<span class=hs-linenum>232: </span>  <span class='hs-varid'>pure</span> <span class='hs-varop'>$</span> <span class='hs-varid'>read</span> <span class='hs-varid'>ds</span>
+<span class=hs-linenum>233: </span>
+<span class=hs-linenum>234: </span><span class='hs-definition'>parseIsChar</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Char</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Bool</span>
+<span class=hs-linenum>235: </span><span class='hs-definition'>parseIsChar</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>236: </span>  <span class='hs-varid'>c'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.anyChar</span>
+<span class=hs-linenum>237: </span>  <span class='hs-varid'>pure</span> <span class='hs-varop'>$</span> <span class='hs-varid'>c</span> <span class='hs-varop'>==</span> <span class='hs-varid'>c'</span>
+<span class=hs-linenum>238: </span>
+<span class=hs-linenum>239: </span><span class='hs-definition'>parseExp</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Exp</span>
+<span class=hs-linenum>240: </span><span class='hs-definition'>parseExp</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>241: </span>  <span class='hs-varid'>rest</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lookAheadRest</span>
+<span class=hs-linenum>242: </span>  <span class='hs-varid'>debugM</span> <span class='hs-varop'>$</span> <span class='hs-str'>"parseExp: "</span> <span class='hs-varop'>++</span> <span class='hs-varid'>rest</span>
+<span class=hs-linenum>243: </span>  <span class='hs-comment'>-- str &lt;- P.between (parseSymbol "{") (parseSymbol "}") (P.many1 P.anyChar)</span>
+<span class=hs-linenum>244: </span>  <span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"{"</span>
+<span class=hs-linenum>245: </span>  <span class='hs-varid'>str</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.manyTill</span> <span class='hs-conid'>P.anyChar</span> <span class='hs-layout'>(</span><span class='hs-conid'>P.try</span> <span class='hs-layout'>(</span><span class='hs-varid'>parseSymbol</span> <span class='hs-str'>"}"</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>246: </span>  <span class='hs-varid'>debugM</span> <span class='hs-varop'>$</span> <span class='hs-str'>"str: "</span> <span class='hs-varop'>++</span> <span class='hs-varid'>str</span>
+<span class=hs-linenum>247: </span>  <span class='hs-varid'>fromMP</span> <span class='hs-layout'>(</span><span class='hs-conid'>MP.parseExp</span> <span class='hs-varid'>str</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>248: </span>
+<span class=hs-linenum>249: </span><span class='hs-definition'>parseNextIsNewline</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Bool</span>
+<span class=hs-linenum>250: </span><span class='hs-definition'>parseNextIsNewline</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>251: </span>  <span class='hs-varid'>c</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.lookAhead</span> <span class='hs-conid'>P.anyChar</span>
+<span class=hs-linenum>252: </span>  <span class='hs-varid'>pure</span> <span class='hs-varop'>$</span> <span class='hs-varid'>c</span> <span class='hs-varop'>==</span> <span class='hs-chr'>'\n'</span>
+<span class=hs-linenum>253: </span>
+<span class=hs-linenum>254: </span><span class='hs-comment'>-- parses the string until right before `p` parses `True`</span>
+<span class=hs-linenum>255: </span><span class='hs-definition'>parseUntilBefore</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>Bool</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>String</span>
+<span class=hs-linenum>256: </span><span class='hs-definition'>parseUntilBefore</span> <span class='hs-varid'>p</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>lexeme</span> <span class='hs-varid'>go</span>
+<span class=hs-linenum>257: </span>  <span class='hs-keyword'>where</span>
+<span class=hs-linenum>258: </span>    <span class='hs-varid'>go</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>259: </span>      <span class='hs-varid'>b</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.lookAhead</span> <span class='hs-varid'>p</span>
+<span class=hs-linenum>260: </span>      <span class='hs-keyword'>if</span> <span class='hs-varid'>b</span>
+<span class=hs-linenum>261: </span>        <span class='hs-keyword'>then</span> <span class='hs-varid'>pure</span> <span class='hs-str'>""</span>
+<span class=hs-linenum>262: </span>        <span class='hs-keyword'>else</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>263: </span>          <span class='hs-varid'>c</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-conid'>P.anyChar</span>
+<span class=hs-linenum>264: </span>          <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-conop'>:</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>go</span>
+<span class=hs-linenum>265: </span>
+<span class=hs-linenum>266: </span><span class='hs-definition'>lookAheadRest</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Parser</span> <span class='hs-conid'>String</span>
+<span class=hs-linenum>267: </span><span class='hs-definition'>lookAheadRest</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>P.lookAhead</span> <span class='hs-layout'>(</span><span class='hs-conid'>P.many</span> <span class='hs-conid'>P.anyChar</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>268: </span>
+<span class=hs-linenum>269: </span><span class='hs-definition'>splitByChar</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Char</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>String</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>270: </span><span class='hs-definition'>splitByChar</span> <span class='hs-varid'>sep</span> <span class='hs-varid'>str</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>go</span> <span class='hs-str'>""</span> <span class='hs-varid'>str</span>
+<span class=hs-linenum>271: </span>  <span class='hs-keyword'>where</span>
+<span class=hs-linenum>272: </span>    <span class='hs-varid'>go</span> <span class='hs-str'>""</span> <span class='hs-str'>""</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>[]</span>
+<span class=hs-linenum>273: </span>    <span class='hs-varid'>go</span> <span class='hs-varid'>acc</span> <span class='hs-str'>""</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>acc</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>274: </span>    <span class='hs-varid'>go</span> <span class='hs-varid'>acc</span> <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-conop'>:</span> <span class='hs-varid'>str</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>275: </span>      <span class='hs-keyglyph'>|</span> <span class='hs-varid'>c</span> <span class='hs-varop'>==</span> <span class='hs-varid'>sep</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>acc</span> <span class='hs-conop'>:</span> <span class='hs-varid'>go</span> <span class='hs-str'>""</span> <span class='hs-varid'>str</span>
+<span class=hs-linenum>276: </span>      <span class='hs-keyglyph'>|</span> <span class='hs-varid'>otherwise</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>go</span> <span class='hs-layout'>(</span><span class='hs-varid'>acc</span> <span class='hs-varop'>++</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>c</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span> <span class='hs-varid'>str</span>
+</pre>
+</body>
+</html>

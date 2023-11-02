@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<title>src/Tactic/Core/Quote.hs</title>
+</head>
+<head>
+<link type='text/css' rel='stylesheet' href='liquid.css' />
+</head>
+
+<body>
+<hr>
+Put mouse over identifiers to see inferred types
+<pre><span class=hs-linenum> 1: </span><span class='hs-comment'>{-# LANGUAGE BlockArguments #-}</span>
+<span class=hs-linenum> 2: </span><span class='hs-comment'>{-# LANGUAGE NamedFieldPuns #-}</span>
+<span class=hs-linenum> 3: </span><span class='hs-comment'>{-# LANGUAGE QuasiQuotes #-}</span>
+<span class=hs-linenum> 4: </span><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
+<span class=hs-linenum> 5: </span>
+<span class=hs-linenum> 6: </span><span class='hs-keyword'>{-@</span> <span class='hs-conid'>LIQUID</span> <span class='hs-str'>"--compile-spec"</span> <span class='hs-keyword'>@-}</span>
+<span class=hs-linenum> 7: </span>
+<span class=hs-linenum> 8: </span><span class='hs-keyword'>module</span> <span class='hs-conid'>Tactic.Core.Quote</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum> 9: </span>
+<span class=hs-linenum>10: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Control.Monad.Except</span>
+<span class=hs-linenum>11: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Control.Monad.State</span>
+<span class=hs-linenum>12: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.Serialize</span>
+<span class=hs-linenum>13: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH</span>
+<span class=hs-linenum>14: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Datatype</span>
+<span class=hs-linenum>15: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Ppr</span> <span class='hs-layout'>(</span><span class='hs-varid'>pprint</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>16: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Quote</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Quote</span>
+<span class=hs-linenum>17: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Syntax</span>
+<span class=hs-linenum>18: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>System.IO.Unsafe</span>
+<span class=hs-linenum>19: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Debug</span>
+<span class=hs-linenum>20: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Parse</span>
+<span class=hs-linenum>21: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.PreSyntax</span>
+<span class=hs-linenum>22: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.SplicePreSyntax</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>SplicePreSyntax</span>
+<span class=hs-linenum>23: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.SpliceSyntax</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>SpliceSyntax</span>
+<span class=hs-linenum>24: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Syntax</span>
+<span class=hs-linenum>25: </span>
+<span class=hs-linenum>26: </span><span class='hs-definition'>tactic</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Quote.QuasiQuoter</span>
+<span class=hs-linenum>27: </span><span class='hs-definition'>tactic</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum>28: </span>  <span class='hs-conid'>Quote.QuasiQuoter</span>
+<span class=hs-linenum>29: </span>    <span class='hs-layout'>{</span> <span class='hs-conid'>Quote.quoteExp</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>undefined</span><span class='hs-layout'>,</span> <span class='hs-comment'>-- quoteExp,</span>
+<span class=hs-linenum>30: </span>      <span class='hs-conid'>Quote.quoteDec</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>quoteDec</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>31: </span>      <span class='hs-conid'>Quote.quotePat</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>error</span> <span class='hs-str'>"cannot quote a pattern with tactic quasiquoter"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>32: </span>      <span class='hs-conid'>Quote.quoteType</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>error</span> <span class='hs-str'>"cannot quote a type with tactic quasiquoter"</span>
+<span class=hs-linenum>33: </span>    <span class='hs-layout'>}</span>
+<span class=hs-linenum>34: </span>
+<span class=hs-linenum>35: </span><span class='hs-comment'>-- * old version that spliced directly to Exp</span>
+<span class=hs-linenum>36: </span>
+<span class=hs-linenum>37: </span><span class='hs-comment'>-- quoteExp :: String -&gt; Q Exp</span>
+<span class=hs-linenum>38: </span><span class='hs-comment'>-- quoteExp str = do</span>
+<span class=hs-linenum>39: </span><span class='hs-comment'>--   instrs &lt;- runParser parseInstrs str</span>
+<span class=hs-linenum>40: </span><span class='hs-comment'>--   evalStateT (spliceExp instrs) emptyEnvironment</span>
+<span class=hs-linenum>41: </span>
+<span class=hs-linenum>42: </span><span class='hs-comment'>-- quoteDec :: String -&gt; Q [Dec]</span>
+<span class=hs-linenum>43: </span><span class='hs-comment'>-- quoteDec str = do</span>
+<span class=hs-linenum>44: </span><span class='hs-comment'>--   (env, instrs) &lt;- runParser parseDecInstrs str</span>
+<span class=hs-linenum>45: </span><span class='hs-comment'>--   debugM $ "====================================="</span>
+<span class=hs-linenum>46: </span><span class='hs-comment'>--   debugM $ "instrs: " ++ show instrs</span>
+<span class=hs-linenum>47: </span><span class='hs-comment'>--   debugM $ "env: " ++ show env</span>
+<span class=hs-linenum>48: </span><span class='hs-comment'>--   decs &lt;- evalStateT (spliceDec instrs) env</span>
+<span class=hs-linenum>49: </span><span class='hs-comment'>--   pure decs</span>
+<span class=hs-linenum>50: </span>
+<span class=hs-linenum>51: </span><span class='hs-comment'>-- * new version that splices first to PreExp then to Exp</span>
+<span class=hs-linenum>52: </span>
+<span class=hs-linenum>53: </span><span class='hs-comment'>-- quoteExp :: String -&gt; Q Exp</span>
+<span class=hs-linenum>54: </span><span class='hs-comment'>-- quoteExp str = do</span>
+<span class=hs-linenum>55: </span><span class='hs-comment'>--   instrs &lt;- runParser parseInstrs str</span>
+<span class=hs-linenum>56: </span><span class='hs-comment'>--   -- splice [Instr] to PreExp</span>
+<span class=hs-linenum>57: </span><span class='hs-comment'>--   pe &lt;- evalStateT (SpliceSyntax.spliceExp instrs) emptyEnvironment</span>
+<span class=hs-linenum>58: </span><span class='hs-comment'>--   -- splice PreExp to Exp</span>
+<span class=hs-linenum>59: </span><span class='hs-comment'>--   let e = SplicePreSyntax.splicePreExp pe</span>
+<span class=hs-linenum>60: </span><span class='hs-comment'>--   --</span>
+<span class=hs-linenum>61: </span><span class='hs-comment'>--   pure e</span>
+<span class=hs-linenum>62: </span>
+<span class=hs-linenum>63: </span><span class='hs-definition'>quoteDec</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Q</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Dec</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>64: </span><span class='hs-definition'>quoteDec</span> <span class='hs-varid'>str</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>65: </span>  <span class='hs-layout'>(</span><span class='hs-varid'>env</span><span class='hs-layout'>,</span> <span class='hs-varid'>instrs</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>runParser</span> <span class='hs-varid'>parseDecInstrs</span> <span class='hs-varid'>str</span>
+<span class=hs-linenum>66: </span>  <span class='hs-varid'>debugM</span> <span class='hs-varop'>$</span> <span class='hs-str'>"====================================="</span>
+<span class=hs-linenum>67: </span>  <span class='hs-varid'>debugM</span> <span class='hs-varop'>$</span> <span class='hs-str'>"instrs: "</span> <span class='hs-varop'>++</span> <span class='hs-varid'>show</span> <span class='hs-varid'>instrs</span>
+<span class=hs-linenum>68: </span>  <span class='hs-varid'>debugM</span> <span class='hs-varop'>$</span> <span class='hs-str'>"env: "</span> <span class='hs-varop'>++</span> <span class='hs-varid'>show</span> <span class='hs-varid'>env</span>
+<span class=hs-linenum>69: </span>  <span class='hs-comment'>-- splice [Instr] to PreDec</span>
+<span class=hs-linenum>70: </span>  <span class='hs-varid'>preDec</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>evalStateT</span> <span class='hs-layout'>(</span><span class='hs-conid'>SpliceSyntax.spliceDec</span> <span class='hs-varid'>instrs</span><span class='hs-layout'>)</span> <span class='hs-varid'>env</span>
+<span class=hs-linenum>71: </span>  <span class='hs-comment'>-- splice PreDec to [Dec]</span>
+<span class=hs-linenum>72: </span>  <span class='hs-keyword'>let</span> <span class='hs-varid'>decs</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>SplicePreSyntax.splicePreDec</span> <span class='hs-varid'>preDec</span>
+<span class=hs-linenum>73: </span>  <span class='hs-comment'>-- dummy definition of encoded PreDec</span>
+<span class=hs-linenum>74: </span>  <span class='hs-keyword'>let</span> <span class='hs-varid'>decPreDecEnc</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum>75: </span>        <span class='hs-conid'>FunD</span>
+<span class=hs-linenum>76: </span>          <span class='hs-layout'>(</span><span class='hs-varid'>mkName</span> <span class='hs-layout'>(</span><span class='hs-str'>"_tactic_encoding_"</span> <span class='hs-varop'>++</span> <span class='hs-varid'>pprint</span> <span class='hs-layout'>(</span><span class='hs-varid'>def_name</span> <span class='hs-varid'>env</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>77: </span>          <span class='hs-keyglyph'>[</span><span class='hs-conid'>Clause</span> <span class='hs-conid'>[]</span> <span class='hs-layout'>(</span><span class='hs-conid'>NormalB</span> <span class='hs-layout'>(</span><span class='hs-conid'>LitE</span> <span class='hs-layout'>(</span><span class='hs-conid'>StringL</span> <span class='hs-layout'>(</span><span class='hs-varid'>encode</span> <span class='hs-varid'>preDec</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-conid'>[]</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>78: </span>  <span class='hs-comment'>--</span>
+<span class=hs-linenum>79: </span>  <span class='hs-varid'>debugM</span> <span class='hs-str'>"preDec:"</span>
+<span class=hs-linenum>80: </span>  <span class='hs-varid'>debugM</span> <span class='hs-layout'>(</span><span class='hs-varid'>show</span> <span class='hs-varid'>preDec</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>81: </span>  <span class='hs-varid'>debugM</span> <span class='hs-str'>"decPreDecEnc:"</span>
+<span class=hs-linenum>82: </span>  <span class='hs-varid'>debugM</span> <span class='hs-layout'>(</span><span class='hs-varid'>pprint</span> <span class='hs-varid'>decPreDecEnc</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>83: </span>  <span class='hs-comment'>--</span>
+<span class=hs-linenum>84: </span>  <span class='hs-varid'>pure</span> <span class='hs-layout'>(</span><span class='hs-varid'>decs</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>decPreDecEnc</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,127 @@
+[console] inlining tactic splices in file: /Users/danny/Desktop/proof-macros/lh-proof-macros/./src/Prop3.hs
+[debug] ===[ ls_err ]===
+[debug] ========================================
+lh-proof-macros> build (lib + exe)
+Preprocessing executable 'lh-tactics' for lh-proof-macros-0.1.0.0..
+Building executable 'lh-tactics' for lh-proof-macros-0.1.0.0..
+Linking .stack-work/dist/aarch64-osx/ghc-9.2.5/build/lh-tactics/lh-tactics ...
+Preprocessing library for lh-proof-macros-0.1.0.0..
+Building library for lh-proof-macros-0.1.0.0..
+[17 of 17] Compiling Prop3
+ld: warning: -single_module is obsolete
+[#] =====================================
+[#] instrs: [intro xs]
+[#] env: def_name: proof
+def_type: AppT (AppT ArrowT (ConT ListN)) (ConT Proof)
+def_argTypes: [ConT ListN]
+def_argNames: [xs]
+arg_i: 0
+args_rec_ctx: fromList []
+ctx: fromList []
+
+[#] preDec:
+[#] PreDec proof (AppT (AppT ArrowT (ConT ListN)) (ConT Proof)) (Lambda xs (AutoPreExp [] (PruneAutoState {kept = [], pruned = []}) TrivialPreExp))
+[#] decPreDecEnc:
+[#] _tactic_encoding_proof = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"
+/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs:(23,9)-(28,2): Splicing declarations
+    Language.Haskell.TH.Quote.quoteDec
+      tactic
+      "\n\
+      \  proof :: ListN -> Proof\n\
+      \  proof xs = \\\n\
+      \    induct xs as [/x' xs'];\n\
+      \    [x']: condition {constant False x'}\n"
+  ======>
+    proof :: ListN -> Proof
+    proof = \ xs -> trivial
+    _tactic_encoding_proof
+      = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"
+[#] =====================================
+[#] instrs: [intro xs]
+[#] env: def_name: proof
+def_type: AppT (AppT ArrowT (ConT ListN)) (ConT Proof)
+def_argTypes: [ConT ListN]
+def_argNames: [xs]
+arg_i: 0
+args_rec_ctx: fromList []
+ctx: fromList []
+
+[#] preDec:
+[#] PreDec proof (AppT (AppT ArrowT (ConT ListN)) (ConT Proof)) (Lambda xs (AutoPreExp [] (PruneAutoState {kept = [], pruned = []}) TrivialPreExp))
+[#] decPreDecEnc:
+[#] _tactic_encoding_proof = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"
+/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs:(23,9)-(28,2): Splicing declarations
+    Language.Haskell.TH.Quote.quoteDec
+      tactic
+      "\n\
+      \  proof :: ListN -> Proof\n\
+      \  proof xs = \\\n\
+      \    induct xs as [/x' xs'];\n\
+      \    [x']: condition {constant False x'}\n"
+  ======>
+    proof :: ListN -> Proof
+    proof = \ xs -> trivial
+    _tactic_encoding_proof
+      = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"
+[1;93m
+**** LIQUID: SAFE (0 constraints checked) **************************************
+ld: warning: -single_module is obsolete
+[0mPreprocessing executable 'lh-proof-macros-exe' for lh-proof-macros-0.1.0.0..
+Building executable 'lh-proof-macros-exe' for lh-proof-macros-0.1.0.0..
+lh-proof-macros> copy/register
+Installing executable lh-tactics in /Users/danny/Desktop/proof-macros/lh-proof-macros/.stack-work/install/aarch64-osx/d499c6dbe8fc6ff0c53771ab9fc54a09ad44a727efcba157bc185dd1d97413a9/9.2.5/bin
+Installing library in /Users/danny/Desktop/proof-macros/lh-proof-macros/.stack-work/install/aarch64-osx/d499c6dbe8fc6ff0c53771ab9fc54a09ad44a727efcba157bc185dd1d97413a9/9.2.5/lib/aarch64-osx-ghc-9.2.5/lh-proof-macros-0.1.0.0-7I6yP4GGvZTIQsGHgdCJX2
+Installing executable lh-proof-macros-exe in /Users/danny/Desktop/proof-macros/lh-proof-macros/.stack-work/install/aarch64-osx/d499c6dbe8fc6ff0c53771ab9fc54a09ad44a727efcba157bc185dd1d97413a9/9.2.5/bin
+Registering library for lh-proof-macros-0.1.0.0..
+
+[debug] ========================================
+====================== tacticSplices
+TacticSplice {filePath_TS = "/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs", lineRange_TS = (23,28), name_TS = "proof", lines_TS = ["proof :: ListN -> Proof","proof = \\ xs -> trivial"], encoding_TS = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"}
+TacticSplice {filePath_TS = "/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs", lineRange_TS = (23,28), name_TS = "proof", lines_TS = ["proof :: ListN -> Proof","proof = \\ xs -> trivial"], encoding_TS = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"}
+
+[debug] ========================================
+==================== ls'_file
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{-@ LIQUID "--compile-spec" @-}
+{-@ LIQUID "--reflection" @-}
+{-@ LIQUID "--ple-local" @-}
+
+module Prop3 where
+
+import Data
+import Proof
+import Tactic.Core.Quote
+
+{-@ reflect prop @-}
+{-@ prop :: ListN -> Bool @-}
+prop :: ListN -> Bool
+prop xs = dropWhileListN (constant False) xs == xs
+
+{-@ automatic-instances prop @-}
+{-@
+proof :: xs:ListN -> {prop xs}
+@-}
+[tactic|
+  proof :: ListN -> Proof
+  proof xs = \
+    induct xs as [/x' xs'];
+    [x']: condition {constant False x'}
+|]
+
+--  %tactic:begin:proof
+--  proof :: ListN -> Proof
+--  proof = \xs -> case xs of
+--                     Data.Nil -> trivial
+--                     Data.Cons x' xs' -> if constant False x' then trivial else trivial
+--  %tactic:end:proof
+
+[console] wrote inlined splices in file: /Users/danny/Desktop/proof-macros/lh-proof-macros/./src/Prop3.hs
+[debug] filePath = "/Users/danny/Desktop/proof-macros/lh-proof-macros/./src/Prop3.hs"
+[debug] defName = "proof"
+[debug] tacticSplices = [TacticSplice {filePath_TS = "/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs", lineRange_TS = (23,28), name_TS = "proof", lines_TS = ["proof :: ListN -> Proof","proof = \\ xs -> trivial"], encoding_TS = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"},TacticSplice {filePath_TS = "/Users/danny/Desktop/proof-macros/lh-proof-macros/src/Prop3.hs", lineRange_TS = (23,28), name_TS = "proof", lines_TS = ["proof :: ListN -> Proof","proof = \\ xs -> trivial"], encoding_TS = "#Dec#NameBeginproof#NameEnd#TypeBeginListN -> Proof#TypeEnd#Lambda#NameBeginxs#NameEnd#AutoPreExp#BeginAutoPreExps#EndAutoPreExps#TrivialPreExp"}]
+
+lh-tactics: not a valid defName
+CallStack (from HasCallStack):
+  error, called at app/Main.hs:41:18 in main:Main

@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<title>src/Tactic/Core/PreSyntax.hs</title>
+</head>
+<head>
+<link type='text/css' rel='stylesheet' href='liquid.css' />
+</head>
+
+<body>
+<hr>
+Put mouse over identifiers to see inferred types
+<pre><span class=hs-linenum>  1: </span><span class='hs-comment'>{-# LANGUAGE BlockArguments #-}</span>
+<span class=hs-linenum>  2: </span><span class='hs-comment'>{-# LANGUAGE NamedFieldPuns #-}</span>
+<span class=hs-linenum>  3: </span><span class='hs-comment'>{-# LANGUAGE QuasiQuotes #-}</span>
+<span class=hs-linenum>  4: </span><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
+<span class=hs-linenum>  5: </span>
+<span class=hs-linenum>  6: </span><span class='hs-keyword'>{-@</span> <span class='hs-conid'>LIQUID</span> <span class='hs-str'>"--compile-spec"</span> <span class='hs-keyword'>@-}</span>
+<span class=hs-linenum>  7: </span><span class='hs-keyword'>{-@</span> <span class='hs-conid'>LIQUID</span> <span class='hs-str'>"--no-positivity"</span> <span class='hs-keyword'>@-}</span>
+<span class=hs-linenum>  8: </span>
+<span class=hs-linenum>  9: </span><span class='hs-keyword'>module</span> <span class='hs-conid'>Tactic.Core.PreSyntax</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum> 10: </span>
+<span class=hs-linenum> 11: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Control.Monad.State</span>
+<span class=hs-linenum> 12: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.List</span> <span class='hs-keyword'>qualified</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>List</span>
+<span class=hs-linenum> 13: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.Map</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Map</span>
+<span class=hs-linenum> 14: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.Maybe</span>
+<span class=hs-linenum> 15: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Data.Serialize</span>
+<span class=hs-linenum> 16: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.Meta.Parse</span>
+<span class=hs-linenum> 17: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH</span>
+<span class=hs-linenum> 18: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Datatype</span>
+<span class=hs-linenum> 19: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Ppr</span> <span class='hs-layout'>(</span><span class='hs-varid'>pprint</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 20: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Quote</span>
+<span class=hs-linenum> 21: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Language.Haskell.TH.Syntax</span>
+<span class=hs-linenum> 22: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>System.IO.Unsafe</span> <span class='hs-layout'>(</span><span class='hs-varid'>unsafePerformIO</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 23: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Tactic.Core.Debug</span>
+<span class=hs-linenum> 24: </span><span class='hs-keyword'>import</span> <span class='hs-conid'>Prelude</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>exp</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 25: </span>
+<span class=hs-linenum> 26: </span><span class='hs-keyword'>data</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 27: </span>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Lambda</span> <span class='hs-conid'>Name</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 28: </span>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Case</span> <span class='hs-conid'>Exp</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-conid'>Pat</span><span class='hs-layout'>,</span> <span class='hs-conid'>PreExp</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 29: </span>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>If</span> <span class='hs-conid'>Exp</span> <span class='hs-conid'>PreExp</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 30: </span>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Exp</span> <span class='hs-conid'>Exp</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 31: </span>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>AutoPreExp</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Exp</span><span class='hs-keyglyph'>]</span> <span class='hs-conid'>PruneAutoState</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 32: </span>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>TrivialPreExp</span>
+<span class=hs-linenum> 33: </span>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 34: </span>
+<span class=hs-linenum> 35: </span><span class='hs-keyword'>data</span> <span class='hs-conid'>PruneAutoState</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PruneAutoState</span>
+<span class=hs-linenum> 36: </span>  <span class='hs-layout'>{</span> <span class='hs-varid'>kept</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Exp</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 37: </span>    <span class='hs-varid'>pruned</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Exp</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 38: </span>  <span class='hs-layout'>}</span>
+<span class=hs-linenum> 39: </span>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 40: </span>
+<span class=hs-linenum> 41: </span><span class='hs-definition'>initPruneAutoState</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 42: </span>  <span class='hs-conid'>PruneAutoState</span>
+<span class=hs-linenum> 43: </span>    <span class='hs-layout'>{</span> <span class='hs-varid'>kept</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>mempty</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 44: </span>      <span class='hs-varid'>pruned</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>mempty</span>
+<span class=hs-linenum> 45: </span>    <span class='hs-layout'>}</span>
+<span class=hs-linenum> 46: </span>
+<span class=hs-linenum> 47: </span><span class='hs-keyword'>data</span> <span class='hs-conid'>PreDec</span>
+<span class=hs-linenum> 48: </span>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PreDec</span> <span class='hs-conid'>Name</span> <span class='hs-conid'>Type</span> <span class='hs-conid'>PreExp</span>
+<span class=hs-linenum> 49: </span>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 50: </span>
+<span class=hs-linenum> 51: </span><span class='hs-comment'>-- instance Show PreExp where</span>
+<span class=hs-linenum> 52: </span><span class='hs-comment'>--   show (Lambda x pe) = "(\\ " ++ pprint x ++ " " ++ show pe ++ ")"</span>
+<span class=hs-linenum> 53: </span><span class='hs-comment'>--   show (Case arg ms) = "(case " ++ pprint arg ++ " of {" ++ List.intercalate "; " ((\(pat, expr) -&gt; pprint pat ++ " -&gt; " ++ show expr) &lt;$&gt; ms) ++ "})"</span>
+<span class=hs-linenum> 54: </span><span class='hs-comment'>--   show (If e pe1 pe2) = "(if " ++ pprint e ++ " then " ++ show pe1 ++ " else " ++ show pe2 ++ ")"</span>
+<span class=hs-linenum> 55: </span><span class='hs-comment'>--   show (Exp e pe) = "(" ++ pprint e ++ ") &amp;&amp;&amp; " ++ show pe ++ ")"</span>
+<span class=hs-linenum> 56: </span><span class='hs-comment'>--   show (AutoPreExp es _ pe) = "(Auto(" ++ List.intercalate " &amp;&amp;&amp; " (pprint &lt;$&gt; es) ++ ") &amp;&amp;&amp; " ++ show pe ++ ")"</span>
+<span class=hs-linenum> 57: </span><span class='hs-comment'>--   show (TrivialPreExp) = "trivial"</span>
+<span class=hs-linenum> 58: </span>
+<span class=hs-linenum> 59: </span><span class='hs-comment'>-- instance Show PreDec where</span>
+<span class=hs-linenum> 60: </span><span class='hs-comment'>--   show (PreDec x t pe) = "(" ++ pprint x ++ " :: " ++ pprint t ++ " := " ++ show pe ++ ")"</span>
+<span class=hs-linenum> 61: </span>
+<span class=hs-linenum> 62: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>PreExp</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum> 63: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>Lambda</span> <span class='hs-varid'>x</span> <span class='hs-varid'>pe</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#Lambda"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>x</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>pe</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 64: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>Case</span> <span class='hs-varid'>arg</span> <span class='hs-varid'>ms</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 65: </span>    <span class='hs-varid'>concat</span>
+<span class=hs-linenum> 66: </span>      <span class='hs-keyglyph'>[</span> <span class='hs-str'>"#Case"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 67: </span>        <span class='hs-varid'>encode</span> <span class='hs-varid'>arg</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 68: </span>        <span class='hs-str'>"#BeginMatches"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 69: </span>        <span class='hs-varid'>concat</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-layout'>(</span><span class='hs-varid'>p</span><span class='hs-layout'>,</span> <span class='hs-varid'>pe</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#ItemMatch"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>p</span><span class='hs-layout'>,</span> <span class='hs-str'>"#,"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>pe</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>ms</span><span class='hs-layout'>)</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 70: </span>        <span class='hs-str'>"#EndMatches"</span>
+<span class=hs-linenum> 71: </span>      <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 72: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>If</span> <span class='hs-varid'>e</span> <span class='hs-varid'>pe1</span> <span class='hs-varid'>pe2</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#If"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>e</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>pe1</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>pe2</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 73: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>Exp</span> <span class='hs-varid'>e</span> <span class='hs-varid'>pe</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#Exp"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>e</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>pe</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 74: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>AutoPreExp</span> <span class='hs-varid'>es</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>pe</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 75: </span>    <span class='hs-varid'>concat</span>
+<span class=hs-linenum> 76: </span>      <span class='hs-keyglyph'>[</span> <span class='hs-str'>"#AutoPreExp"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 77: </span>        <span class='hs-str'>"#BeginAutoPreExps"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 78: </span>        <span class='hs-varid'>concat</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>e</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#ItemAutoExp"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>e</span><span class='hs-keyglyph'>]</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>es</span><span class='hs-layout'>)</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 79: </span>        <span class='hs-str'>"#EndAutoPreExps"</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 80: </span>        <span class='hs-varid'>encode</span> <span class='hs-varid'>pe</span>
+<span class=hs-linenum> 81: </span>      <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 82: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>TrivialPreExp</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#TrivialPreExp"</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum> 83: </span>
+<span class=hs-linenum> 84: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum> 85: </span>    <span class='hs-layout'>(</span><span class='hs-varid'>decodeGroup</span> <span class='hs-str'>"PreExp"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 86: </span>      <span class='hs-keyglyph'>[</span> <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#Lambda"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum> 87: </span>          <span class='hs-conid'>Lambda</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span><span class='hs-layout'>,</span>
+<span class=hs-linenum> 88: </span>        <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#Case"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum> 89: </span>          <span class='hs-conid'>Case</span>
+<span class=hs-linenum> 90: </span>            <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decode</span>
+<span class=hs-linenum> 91: </span>            <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decodeList</span>
+<span class=hs-linenum> 92: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeString</span> <span class='hs-str'>"#BeginMatches"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 93: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#ItemMatch"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 94: </span>              <span class='hs-layout'>(</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum> 95: </span>                  <span class='hs-varid'>p</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decode</span>
+<span class=hs-linenum> 96: </span>                  <span class='hs-varid'>decodeString</span> <span class='hs-str'>"#,"</span>
+<span class=hs-linenum> 97: </span>                  <span class='hs-varid'>pe</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decode</span>
+<span class=hs-linenum> 98: </span>                  <span class='hs-varid'>pure</span> <span class='hs-layout'>(</span><span class='hs-varid'>p</span><span class='hs-layout'>,</span> <span class='hs-varid'>pe</span><span class='hs-layout'>)</span>
+<span class=hs-linenum> 99: </span>              <span class='hs-layout'>)</span>
+<span class=hs-linenum>100: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeString</span> <span class='hs-str'>"#EndMatches"</span><span class='hs-layout'>)</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>101: </span>        <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#If"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>102: </span>          <span class='hs-conid'>If</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>103: </span>        <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#Exp"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>104: </span>          <span class='hs-conid'>Exp</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>105: </span>        <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#AutoPreExp"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>106: </span>          <span class='hs-conid'>AutoPreExp</span>
+<span class=hs-linenum>107: </span>            <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decodeList</span>
+<span class=hs-linenum>108: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeString</span> <span class='hs-str'>"#BeginAutoPreExps"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>109: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#ItemAutoExp"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>110: </span>              <span class='hs-varid'>decode</span>
+<span class=hs-linenum>111: </span>              <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#EndAutoPreExps"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>112: </span>            <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-varid'>initPruneAutoState</span>
+<span class=hs-linenum>113: </span>            <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span><span class='hs-layout'>,</span>
+<span class=hs-linenum>114: </span>        <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#TrivialPreExp"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>115: </span>          <span class='hs-varid'>pure</span> <span class='hs-conid'>TrivialPreExp</span>
+<span class=hs-linenum>116: </span>      <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>117: </span>
+<span class=hs-linenum>118: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>PreDec</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum>119: </span>  <span class='hs-varid'>encode</span> <span class='hs-layout'>(</span><span class='hs-conid'>PreDec</span> <span class='hs-varid'>x</span> <span class='hs-varid'>t</span> <span class='hs-varid'>e</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#Dec"</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>x</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>t</span><span class='hs-layout'>,</span> <span class='hs-varid'>encode</span> <span class='hs-varid'>e</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>120: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span>
+<span class=hs-linenum>121: </span>    <span class='hs-layout'>(</span><span class='hs-varid'>decodeGroup</span> <span class='hs-str'>"PreDec"</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>122: </span>      <span class='hs-keyglyph'>[</span> <span class='hs-varid'>decodeLabeled</span> <span class='hs-layout'>(</span><span class='hs-varid'>decodeStringMaybe</span> <span class='hs-str'>"#Dec"</span><span class='hs-layout'>)</span> <span class='hs-varop'>$</span>
+<span class=hs-linenum>123: </span>          <span class='hs-conid'>PreDec</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span> <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>decode</span>
+<span class=hs-linenum>124: </span>      <span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>125: </span>
+<span class=hs-linenum>126: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>Type</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum>127: </span>  <span class='hs-varid'>encode</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#TypeBegin"</span><span class='hs-layout'>,</span> <span class='hs-varid'>pprint</span> <span class='hs-varid'>t</span><span class='hs-layout'>,</span> <span class='hs-str'>"#TypeEnd"</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>128: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>129: </span>    <span class='hs-varid'>s</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decodeParen</span> <span class='hs-str'>"#TypeBegin"</span> <span class='hs-str'>"#TypeEnd"</span>
+<span class=hs-linenum>130: </span>    <span class='hs-varid'>parseToDecode</span> <span class='hs-layout'>(</span><span class='hs-varid'>parseType</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>131: </span>
+<span class=hs-linenum>132: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>Exp</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum>133: </span>  <span class='hs-varid'>encode</span> <span class='hs-varid'>e</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#ExpBegin"</span><span class='hs-layout'>,</span> <span class='hs-varid'>pprint</span> <span class='hs-varid'>e</span><span class='hs-layout'>,</span> <span class='hs-str'>"#ExpEnd"</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>134: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>135: </span>    <span class='hs-varid'>s</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decodeParen</span> <span class='hs-str'>"#ExpBegin"</span> <span class='hs-str'>"#ExpEnd"</span>
+<span class=hs-linenum>136: </span>    <span class='hs-varid'>parseToDecode</span> <span class='hs-layout'>(</span><span class='hs-varid'>parseExp</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>137: </span>
+<span class=hs-linenum>138: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>Pat</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum>139: </span>  <span class='hs-varid'>encode</span> <span class='hs-varid'>p</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#PatBegin"</span><span class='hs-layout'>,</span> <span class='hs-varid'>pprint</span> <span class='hs-varid'>p</span><span class='hs-layout'>,</span> <span class='hs-str'>"#PatEnd"</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>140: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>141: </span>    <span class='hs-varid'>s</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decodeParen</span> <span class='hs-str'>"#PatBegin"</span> <span class='hs-str'>"#PatEnd"</span>
+<span class=hs-linenum>142: </span>    <span class='hs-varid'>parseToDecode</span> <span class='hs-layout'>(</span><span class='hs-varid'>parsePat</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span>
+<span class=hs-linenum>143: </span>
+<span class=hs-linenum>144: </span><span class='hs-keyword'>instance</span> <span class='hs-conid'>Serialize</span> <span class='hs-conid'>Name</span> <span class='hs-keyword'>where</span>
+<span class=hs-linenum>145: </span>  <span class='hs-varid'>encode</span> <span class='hs-varid'>x</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span> <span class='hs-keyglyph'>[</span><span class='hs-str'>"#NameBegin"</span><span class='hs-layout'>,</span> <span class='hs-varid'>show</span> <span class='hs-varid'>x</span><span class='hs-layout'>,</span> <span class='hs-str'>"#NameEnd"</span><span class='hs-keyglyph'>]</span>
+<span class=hs-linenum>146: </span>  <span class='hs-varid'>decode</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+<span class=hs-linenum>147: </span>    <span class='hs-varid'>x</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>decodeParen</span> <span class='hs-str'>"#NameBegin"</span> <span class='hs-str'>"#NameEnd"</span>
+<span class=hs-linenum>148: </span>    <span class='hs-varid'>pure</span> <span class='hs-varop'>$</span> <span class='hs-varid'>mkName</span> <span class='hs-varid'>x</span>
+</pre>
+</body>
+</html>

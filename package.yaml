@@ -1,0 +1,103 @@
+name: lh-proof-macros
+version: 0.1.0.0
+github: "githubuser/lh-proof-macros"
+license: BSD-3-Clause
+author: "Author name here"
+maintainer: "example@example.com"
+copyright: "2023 Author name here"
+
+extra-source-files:
+  - README.md
+  - CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description: Please see the README on GitHub at <https://github.com/githubuser/lh-proof-macros#readme>
+
+dependencies:
+  - base
+  - ghc
+  - liquid-prelude
+  - liquid-vector
+  - liquidhaskell
+  - containers
+  - vector
+  - mtl
+  - template-haskell
+  - th-abstraction
+  - parsec
+  - haskell-src-meta
+  - transformers
+  - process
+
+ghc-options:
+  - -fplugin=LiquidHaskell -fllvm
+  - -Wall
+  - -Wcompat
+  - -Widentities
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wno-missing-export-lists
+  - -Wno-name-shadowing
+  - -Wmissing-home-modules
+  - -Wpartial-fields
+  - -Wredundant-constraints
+  - -Wno-unused-matches
+  - -Wno-unused-do-bind
+  - -Wno-incomplete-patterns
+  - -Wno-missing-signatures
+  - -Wno-unused-imports
+  - -Wno-partial-fields
+  - -Wno-orphans
+
+default-extensions:
+  - ImportQualifiedPost
+  - ScopedTypeVariables
+  - TypeApplications
+
+library:
+  source-dirs: src
+
+executables:
+  lh-tactics:
+    main: Main.hs
+    source-dirs:
+      - app
+      - src
+    dependencies:
+      - containers
+      - haskell-src-meta
+      - liquidhaskell
+      - mtl
+      - parsec
+      - process
+      - template-haskell
+      - th-abstraction
+      - transformers
+    language: Haskell2010
+
+  lh-proof-macros-exe:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - lh-proof-macros
+
+tests:
+  lh-proof-macros-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - lh-proof-macros
